@@ -137,7 +137,11 @@ class RayPPOTrainer(abc.ABC):
 
         num_actions = experience.action_mask.size(1)
         for _ in tqdm(range(1), desc=f'Actor forward'):
-            action_log_probs_obj = self._remote_actor.forward.remote(experience.sequences, num_actions, attention_mask=experience.attention_mask)
+            action_log_probs_obj = self._remote_actor.forward.remote(
+                experience.sequences,
+                num_actions,
+                attention_mask=experience.attention_mask,
+            )
             action_log_probs = ray.get(action_log_probs_obj)
 
             actor_loss = raw_actor_loss = self.actor_loss_fn(action_log_probs,

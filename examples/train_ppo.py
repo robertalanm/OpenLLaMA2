@@ -87,7 +87,7 @@ def train(args):
         args.prompt_data_probs,
         strategy,
         args.seed,
-        max_count=100000,
+        max_count=args.max_samples,
         return_eval=False,
     )
     prompts_data = prompts_data.select(range(min(args.max_samples, len(prompts_data))))

@@ -2,7 +2,6 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import ray
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -63,6 +62,52 @@ class Experience:
         if self.action_mask is not None:
             self.action_mask = self.action_mask.pin_memory()
         return self
+
+
+@torch.no_grad()
+def get_advantages_and_returns(
+    values: torch.Tensor,
+    rewards: torch.Tensor,
+    action_mask: torch.Tensor,
+    gamma: float,
+    lambd: float,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Function that computes advantages and returns from rewards and values.
+    Calculated as in the original PPO paper: https://arxiv.org/abs/1707.06347
+    Note that rewards may include a KL divergence loss term.
+
+    Advantages looks like this:
+    Adv1 =  R1 + γ * λ * R2     + γ^2 * λ^2 * R3       + ...
+            - V1 + γ * (1 - λ) V2 + γ^2 * λ * (1 - λ) V3 + ...
+
+    Returns looks like this:
+    Ret1 =  R1 + γ * λ * R2     + γ^2 * λ^2 * R3       + ...
+                + γ * (1 - λ) V2 + γ^2 * λ * (1 - λ) V3 + ...
+
+    Input:
+    - values: Tensor of shape (batch_size, response_size)
+    - rewards: Tensor of shape (batch_size, response_size)
+
+    Output:
+    - advantages: Tensor of shape (batch_size, response_size)
+    - returns: Tensor of shape (batch_size, response_size)
+    """
+    lastgaelam = 0
+    advantages_reversed = []
+    response_length = rewards.size(1)
+
+    # Mask invalid responses
+    values = action_mask * values
+    rewards = action_mask * rewards
+
+    for t in reversed(range(response_length)):
+        nextvalues = values[:, t + 1] if t < response_length - 1 else 0.0
+        delta = rewards[:, t] + gamma * nextvalues - values[:, t]
+        lastgaelam = delta + gamma * lambd * lastgaelam
+        advantages_reversed.append(lastgaelam)
+    advantages = torch.stack(advantages_reversed[::-1], dim=1)
+    returns = advantages + values
+    return advantages.detach(), returns
 
 
 class NaiveExperienceMaker(ABC):
@@ -139,7 +184,7 @@ class NaiveExperienceMaker(ABC):
             base_action_log_probs,
             action_mask=action_mask,
         )
-        advantage, returns = self.get_advantages_and_returns(
+        advantage, returns = get_advantages_and_returns(
             value,
             reward,
             action_mask,
@@ -165,114 +210,3 @@ class NaiveExperienceMaker(ABC):
             action_mask,
             info,
         )
-
-    @torch.no_grad()
-    def get_advantages_and_returns(
-        self,
-        values: torch.Tensor,
-        rewards: torch.Tensor,
-        action_mask: torch.Tensor,
-        gamma: float,
-        lambd: float,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Function that computes advantages and returns from rewards and values.
-        Calculated as in the original PPO paper: https://arxiv.org/abs/1707.06347
-        Note that rewards may include a KL divergence loss term.
-
-        Advantages looks like this:
-        Adv1 =  R1 + γ * λ * R2     + γ^2 * λ^2 * R3       + ...
-              - V1 + γ * (1 - λ) V2 + γ^2 * λ * (1 - λ) V3 + ...
-
-        Returns looks like this:
-        Ret1 =  R1 + γ * λ * R2     + γ^2 * λ^2 * R3       + ...
-                   + γ * (1 - λ) V2 + γ^2 * λ * (1 - λ) V3 + ...
-
-        Input:
-        - values: Tensor of shape (batch_size, response_size)
-        - rewards: Tensor of shape (batch_size, response_size)
-
-        Output:
-        - advantages: Tensor of shape (batch_size, response_size)
-        - returns: Tensor of shape (batch_size, response_size)
-        """
-        lastgaelam = 0
-        advantages_reversed = []
-        response_length = rewards.size(1)
-
-        # Mask invalid responses
-        values = action_mask * values
-        rewards = action_mask * rewards
-
-        for t in reversed(range(response_length)):
-            nextvalues = values[:, t + 1] if t < response_length - 1 else 0.0
-            delta = rewards[:, t] + gamma * nextvalues - values[:, t]
-            lastgaelam = delta + gamma * lambd * lastgaelam
-            advantages_reversed.append(lastgaelam)
-        advantages = torch.stack(advantages_reversed[::-1], dim=1)
-        returns = advantages + values
-        return advantages.detach(), returns
-
-
-
-class RayExperienceMaker(ABC):
-
-    def __init__(
-        self,
-        remote_actor,
-        remote_critic,
-        remote_initial,
-        remote_reward,
-        kl_controller,
-    ) -> None:
-        super.__init__()
-        self._remote_actor = remote_actor
-        self._remote_critic = remote_critic
-        self._remote_initial = remote_initial
-        self._remote_reward = remote_reward
-        self._kl_controller = kl_controller
-
-
-    def make_experience(self, input_ids: torch.Tensor, **generate_kwargs):
-        # TODO(qwang): These should be changed in no duplicate lines.
-        o1 = self._remote_actor.eval.remote()
-        o2 = self._remote_critic.eval.remote()
-        o3 = self._remote_initial.eval.remote()
-        o4 = self._remote_reward.eval.remote()
-        ray.get([o1, o2, o3, o4])
-
-        for i in tqdm(range(1), desc=f'Generate sequence'):
-            sequences_obj, attention_mask_obj, action_mask_obj = self._remote_actor.generate.remote(
-                input_ids, **generate_kwargs)
-            sequences, attention_mask, action_mask = ray.get([sequences_obj, attention_mask_obj, action_mask_obj])
-
-        num_actions = action_mask.size(1)
-        for i in tqdm(range(1), desc=f'Actor forward'):
-            action_log_probs_obj = self._remote_actor.forward(sequences, num_actions, attention_mask)
-            action_log_probs = ray.get(action_log_probs_obj)
-
-        for i in tqdm(range(1), desc=f'Init model forward'):
-            base_action_log_probs_obj = self._remote_initial.remote(sequences, num_actions, attention_mask)
-            base_action_log_probs = ray.get(base_action_log_probs_obj)
-
-        for i in tqdm(range(1), desc=f'Value model forward'):
-            value_obj = self._remote_critic.remote(sequences, action_mask, attention_mask)
-            value = ray.get(value_obj)
-
-        for i in tqdm(range(1), desc=f'Reward model forward'):
-            reward_value_obj = self._remote_reward.forward.remote(sequences, attention_mask)
-            r = ray.get(reward_value_obj)
-
-        # Compute these stuff on local.
-        reward, kl = compute_reward(r, self.kl_ctl.value, action_log_probs, base_action_log_probs, action_mask=action_mask)
-        advantage, returns = self.get_advantages_and_returns(
-            value, reward, action_mask, generate_kwargs['gamma'], generate_kwargs['lambd'])
-
-        info = {
-            'kl': masked_mean(kl, action_mask, dim=-1),
-            'rm': r,
-            'ret': reward.sum(dim=-1),
-            'glen': action_mask.float().sum(dim=-1),
-            'tlen': attention_mask.float().sum(dim=-1)
-        }
-
-        return Experience(sequences, action_log_probs, value, returns, advantage, attention_mask, action_mask, info)

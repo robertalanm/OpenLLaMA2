@@ -30,7 +30,7 @@ class RewardModel(nn.Module):
         # else:
         #     self.model = pretrain_or_model
 
-        self.model = AutoModelForSequenceClassification.from_pretrained( RewardModel.reward_model_name ) .to(self.device)
+        self.model = AutoModelForSequenceClassification.from_pretrained( RewardModel.reward_model_name )
 
         # mean std
         self.normalize_reward = normalize_reward

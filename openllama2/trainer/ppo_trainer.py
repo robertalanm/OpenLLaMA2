@@ -181,7 +181,7 @@ class PPOTrainer(ABC):
 
             for rand_prompts in pbar:
                 inputs = tokenize_fn(rand_prompts)
-                experience = self.experience_maker.make_experience(**inputs, **self.generate_kwargs)
+                experience = self.experience_maker.make_experience(**inputs, **rand_prompts, **self.generate_kwargs)
                 # print prompt/answer in each update step
                 if global_step % update_timesteps == 0:
                     output = self.tokenizer.batch_decode(experience.sequences, skip_special_tokens=True)

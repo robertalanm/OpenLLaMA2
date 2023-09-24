@@ -76,12 +76,15 @@ class RewardModel(nn.Module):
         data = [ResponseModel(completion=r, is_success=True) for r in responses]
         return data
 
-    def forward(self, sequences: torch.LongTensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, prompts: List[str], sequences: torch.LongTensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         # Convert sequences to text for the reward model
+        total_rewards = []
         predicted_list = [self.tokenizer.decode(seq, skip_special_tokens=True) for seq in sequences]
-        input_item = {"input": "dummy_prompt"}  # This needs to be provided or generated in some way
+        for i, predicted in enumerate(predicted_list):
+            
+            input_item = {"input": prompts[i]}  # This needs to be provided or generated in some way
         
-        rewards = self.get_reward(input_item, predicted_list, False)
+            rewards = self.get_reward(input_item, predicted_list, False)
         return torch.tensor(rewards)
 
     def get_reward(self, input_item, predicted_list, finish):  # predicted will be the list of predicted token

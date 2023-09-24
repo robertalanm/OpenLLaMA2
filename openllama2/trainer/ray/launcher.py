@@ -23,7 +23,7 @@ class DistributedTorchRayActor:
         self._rank = rank
         self._local_rank = local_rank
         self._master_addr = master_addr if master_addr else self._get_current_node_ip()
-        self._master_port = master_port if master_port else self._get_free_port()
+        self._master_port = master_port if master_port else self._get_free_port()get_tokenizer
         os.environ["MASTER_ADDR"] = self._master_addr
         os.environ["MASTER_PORT"] = str(self._master_port)
         os.environ["WORLD_SIZE"] = str(self._world_size)

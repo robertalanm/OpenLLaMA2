@@ -2,7 +2,7 @@ import time
 from abc import ABC
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import ray
 import torch
@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from openllama2.models.actor import Actor
 from openllama2.models.utils import compute_reward, masked_mean
+from openllama2.utils import  get_tokenizer
 
 
 @dataclass
@@ -86,9 +87,10 @@ class NaiveExperienceMaker(ABC):
         self.initial_model = initial_model
         self.kl_ctl = kl_controller
         self.strategy = strategy
+        self.tokenizer = get_tokenizer(self.actor.pretrain, self.actor.model, "left", self.strategy)
 
     @torch.no_grad()
-    def make_experience(self, input_ids: torch.Tensor, **generate_kwargs) -> Experience:
+    def make_experience(self, input_ids: torch.Tensor, prompts: List[str], **generate_kwargs) -> Experience:
         self.actor.eval()
         self.critic.eval()
         self.initial_model.eval()
@@ -193,13 +195,14 @@ class NaiveExperienceMaker(ABC):
 
 class RemoteExperienceMaker(NaiveExperienceMaker):
     @torch.no_grad()
-    def make_experience(self, input_ids: torch.Tensor, **generate_kwargs) -> Experience:
+    def make_experience(self, input_ids: torch.Tensor, prompts: List[str], **generate_kwargs) -> Experience:
         self.actor.eval()
         device = torch.cuda.current_device()
 
         start = time.time()
         # generate seq
         sequences, attention_mask, action_mask = self.actor.generate(input_ids, **generate_kwargs)
+        
         generate_time = time.time() - start
         num_actions = action_mask.size(1)
         sequences_cpu, attention_mask_cpu, action_mask_cpu = (
@@ -215,7 +218,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         value_ref = self.critic.forward.remote(sequences_cpu, action_mask_cpu, attention_mask_cpu)
 
         # rewards
-        r_ref = self.reward_model.forward.remote(sequences_cpu, attention_mask_cpu)
+        r_ref = self.reward_model.forward.remote(prompts, sequences_cpu, attention_mask_cpu)
 
         # log probs
         start = time.time()

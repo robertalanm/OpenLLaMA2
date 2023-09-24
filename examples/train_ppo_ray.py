@@ -38,7 +38,7 @@ def train(args):
 
     # init reference/reward/actor mdoel
     refs = []
-    refs.extend(ref_model.async_init_model_from_pretrained(strategy, args.pretrain, args.sft_model_path))
+    refs.extend(ref_model.async_init_model_from_pretrained(strategy, args.pretrain, args.sft_model_path, args.model_revision))
     refs.extend(actor_model.async_init_model_from_pretrained(strategy, args.pretrain, args.sft_model_path))
     refs.extend(reward_model.async_init_model_from_pretrained(strategy, args.critic_pretrain, args.reward_model_path))
     ray.get(refs)
@@ -90,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("--critic_pretrain", type=str, default=None)
     parser.add_argument("--reward_model_path", type=str, default=None)
     parser.add_argument("--sft_model_path", type=str, default=None)
+    parser.add_argument("--model_revision", type=str, default="main")
     parser.add_argument("--save_path", type=str, default="./ckpt")
     parser.add_argument("--num_episodes", type=int, default=1)
     parser.add_argument("--rollout_batch_size", type=int, default=512)
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_wandb", type=str, default=None)
     parser.add_argument("--wandb_org", type=str, default=None)
     parser.add_argument("--wandb_group", type=str, default=None)
-    parser.add_argument("--wandb_project", type=str, default="openllama2_train_ppo")
+    parser.add_argument("--wandb_project", type=str, default="ramco_ppo_training")
     parser.add_argument(
         "--wandb_run_name",
         type=str,

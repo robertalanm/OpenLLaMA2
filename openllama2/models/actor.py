@@ -25,15 +25,17 @@ class Actor(nn.Module):
         from_config=False,
         lora_rank: int = 0,
         lora_train_bias: str = "none",
+        **kwargs,
     ) -> None:
         super().__init__()
+        revision = kwargs.get("revision", "main")
         if isinstance(pretrain_or_model, str):
             if from_config:
                 config = AutoConfig.from_pretrained(pretrain_or_model, torch_dtype="auto")
                 self.model = AutoModelForCausalLM.from_config(config)
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(
-                    pretrain_or_model, torch_dtype="auto", trust_remote_code=True
+                    pretrain_or_model, torch_dtype="auto", trust_remote_code=True, revision=revision
                 )
         else:
             self.model = pretrain_or_model

@@ -85,7 +85,7 @@ class BasePPORole(DistributedTorchRayActor):
 class ReferenceModelRayActor(BasePPORole):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain, model_path, revision="main"):
         self._setup_distributed(strategy)
-        model, _ = self._from_pretrained(Actor, pretrain, model_path, **revision)
+        model, _ = self._from_pretrained(Actor, pretrain, model_path, revision=revision)
         strategy.print(model)
 
         self.model = self.strategy.prepare(model, is_rlhf=True)

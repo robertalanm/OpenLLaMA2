@@ -131,6 +131,9 @@ class CriticModelRayActor(BasePPORole):
         """Generates critic values."""
         device = torch.cuda.current_device()
         with torch.no_grad():
+            sequences.to(device)
+            action_mask.to(device)
+            attention_mask.to(device)
             # value = self.critic(sequences.to(device), action_mask.to(device), attention_mask.to(device))
 
             value = self.critic(sequences, action_mask, attention_mask)

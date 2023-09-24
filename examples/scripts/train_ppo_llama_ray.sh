@@ -18,7 +18,7 @@ ray job submit --address="http://127.0.0.1:8265" \
     --sft_model_path /openllama2/examples/test_scripts/ckpt/7b_llama/sft_model_ocra.pt \
     --save_path /openllama2/examples/test_scripts/ckpt/7b_llama \
     --micro_train_batch_size 1 \
-    --train_batch_size 128 \
+    --train_batch_size 8 \
     --micro_rollout_batch_size 1 \
     --rollout_batch_size 1024 \
     --max_epochs 1 \

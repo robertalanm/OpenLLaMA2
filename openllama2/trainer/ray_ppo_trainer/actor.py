@@ -33,7 +33,7 @@ class RayActor(DistributedTorchRayActor):
 
         # init model
         actor_from_config = bool(args.sft_model_path or args.load_checkpoint)
-        self.actor = Actor(args.pretrain, actor_from_config)
+        self.actor = Actor(args.pretrain, actor_from_config, revision=args.model_revision)
         if args.sft_model_path:
             self.strategy.load_model(self.actor, args.sft_model_path)
 

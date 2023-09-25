@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from peft import LoraConfig, TaskType, get_peft_config, get_peft_model
-from transformers import AutoConfig, AutoModel
+from transformers import AutoConfig, AutoModel, AutoModelForSequenceClassification
 
 
 class RewardModel(nn.Module):
@@ -17,20 +17,20 @@ class RewardModel(nn.Module):
         lora_train_bias (str): LoRA bias training mode.
     """
 
+    reward_model_name: str = "OpenAssistant/reward-model-deberta-v3-large-v2"
+
     def __init__(self, pretrain_or_model: str, from_config=False, normalize_reward=True) -> None:
         super().__init__()
-        if isinstance(pretrain_or_model, str):
-            if from_config:
-                config = AutoConfig.from_pretrained(pretrain_or_model, torch_dtype="auto")
-                self.model = AutoModel.from_config(config)
-            else:
-                self.model = AutoModel.from_pretrained(pretrain_or_model, torch_dtype="auto", trust_remote_code=True)
-        else:
-            self.model = pretrain_or_model
+        # if isinstance(pretrain_or_model, str):
+        #     if from_config:
+        #         config = AutoConfig.from_pretrained(pretrain_or_model, torch_dtype="auto")
+        #         self.model = AutoModel.from_config(config)
+        #     else:
+        #         self.model = AutoModel.from_pretrained(pretrain_or_model, torch_dtype="auto", trust_remote_code=True)
+        # else:
+        #     self.model = pretrain_or_model
 
-        # value head
-        self.value_head = nn.Linear(self.model.config.hidden_size, 1)
-        self.value_head.weight.data.normal_(mean=0.0, std=1 / (self.model.config.hidden_size + 1))
+        self.model = AutoModelForSequenceClassification.from_pretrained( RewardModel.reward_model_name )
 
         # mean std
         self.normalize_reward = normalize_reward

@@ -31,7 +31,7 @@ def train(args):
     actor_from_config = bool(args.sft_model_path or args.load_checkpoint)
     reward_from_config = bool(args.reward_model_path)
 
-    actor = Actor(args.pretrain, actor_from_config)
+    actor = Actor(args.pretrain, actor_from_config, revision=args.revision)
     if args.actor_init_on_gpu:
         actor = actor.to(torch.cuda.current_device())
 
@@ -246,6 +246,7 @@ if __name__ == "__main__":
         help="sampling probs for datasets",
     )
     parser.add_argument("--pretrain", type=str, default=None)
+    parser.add_argument('--model_revision', type=str, default='v1.1.8')
     parser.add_argument("--critic_pretrain", type=str, default=None)
     parser.add_argument("--reward_model_path", type=str, default=None)
     parser.add_argument("--sft_model_path", type=str, default=None)

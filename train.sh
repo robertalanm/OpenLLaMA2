@@ -1,6 +1,6 @@
 ray job submit --address="http://127.0.0.1:8265" \
     --runtime-env-json='{"working_dir": "/home/ubuntu/ol2", "pip": "/home/ubuntu/ol2/requirements.txt"}' \
-    -- python3 examples/train_ppo_ray.py \
+    -- python3 examples/train_ray_ppo.py \
     --ref_num_nodes 1 \
     --ref_num_gpus_per_node 1 \
     --reward_num_nodes 1 \

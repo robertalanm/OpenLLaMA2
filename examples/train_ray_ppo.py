@@ -31,7 +31,7 @@ def train(args):
     actor_from_config = bool(args.sft_model_path or args.load_checkpoint)
     reward_from_config = bool(args.reward_model_path)
 
-    actor = Actor(args.pretrain, actor_from_config, revision=args.revision)
+    actor = Actor(args.pretrain, actor_from_config, revision=args.model_revision)
     if args.actor_init_on_gpu:
         actor = actor.to(torch.cuda.current_device())
 
